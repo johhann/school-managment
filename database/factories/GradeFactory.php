@@ -18,8 +18,8 @@ class GradeFactory extends Factory
      */
     public function definition(): array
     {
-        $students = User::student()->orderBy('id', 'asc')->limit(5)->pluck('id');
-        $teachers = User::teacher()->orderBy('id', 'desc')->limit(5)->pluck('id');
+        $students = User::student()->pluck('id');
+        $teachers = User::teacher()->pluck('id');
 
         return [
             'student_id' => $this->faker->randomElement($students),

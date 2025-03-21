@@ -6,6 +6,7 @@ use App\Filament\Resources\GradeResource\Pages;
 use App\Models\Grade;
 use App\Models\Subject;
 use App\Models\User;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -14,8 +15,10 @@ use Filament\Tables;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Support\Facades\Auth;
 
-class GradeResource extends Resource
+class GradeResource extends Resource implements HasShieldPermissions
 {
     protected static ?string $model = Grade::class;
 
@@ -49,41 +52,66 @@ class GradeResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('student.name')
-                    ->numeric()
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('subject.name')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('student.name')
+                    ->description(fn ($record) => $record->student->email)
+                    ->visible(Auth::user()->can('view_student_grade'))
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('teacher.name')
-                    ->numeric()
-                    ->sortable(),
+                    ->description(fn ($record) => $record->teacher->email)
+                    ->visible(Auth::user()->can('view_teacher_grade'))
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('grade')
                     ->numeric()
                     ->default('Not Graded')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Date')
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Last Updated')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('updated_at', 'desc')
             ->filters([
                 SelectFilter::make('subject_id')
+                    ->label('Subject')
                     ->relationship('subject', 'name')
                     ->options([Subject::pluck('name', 'id')]),
                 SelectFilter::make('teacher_id')
+                    ->label('Teacher')
                     ->relationship('teacher', 'name')
-                    ->options([User::teacher()->pluck('name', 'id')]),
+                    ->options([User::teacher()->pluck('name', 'id')])
+                    ->hidden(Auth::user()->hasRole('teacher')),
                 SelectFilter::make('student_id')
+                    ->label('Student')
                     ->relationship('student', 'name')
-                    ->options([User::student()->pluck('name', 'id')]),
+                    ->options(User::student()->pluck('name', 'id'))
+                    ->hidden(Auth::user()->hasRole('student')),
             ], FiltersLayout::AboveContent)
+            ->modifyQueryUsing(function (Builder $query) {
+                if (Auth::user()->hasRole('student')) {
+                    return $query->where('student_id', Auth::id());
+                }
+
+                if (Auth::user()->hasRole('teacher')) {
+                    return $query->where('teacher_id', Auth::id());
+                }
+
+                return $query;
+            })
             ->filtersFormColumns(3)
             ->actions([
                 // Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('Update Grade')
+                    ->label('Update')
                     ->slideOver()
+                    ->visible(Auth::user()->can('update_grade'))
                     ->color('primary')
                     ->icon('heroicon-o-cursor-arrow-rays')
                     ->form(function ($record) {
@@ -105,7 +133,8 @@ class GradeResource extends Resource
                             ->success()
                             ->send();
                     }),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(Auth::user()->can('delete_grade')),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -127,6 +156,20 @@ class GradeResource extends Resource
             'index' => Pages\ListGrades::route('/'),
             'create' => Pages\CreateGrade::route('/create'),
             'edit' => Pages\EditGrade::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            'view',
+            'view_any',
+            'create',
+            'update',
+            'delete',
+            'delete_any',
+            'view_student',
+            'view_teacher',
         ];
     }
 }

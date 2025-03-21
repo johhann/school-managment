@@ -8,6 +8,7 @@ use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
 
 class DatabaseSeeder extends Seeder
 {
@@ -18,10 +19,18 @@ class DatabaseSeeder extends Seeder
     {
         DB::beginTransaction();
 
-        User::factory()->create([
-            'name' => 'Super Admin',
+        $roles = ['admin', 'teacher', 'student'];
+
+        foreach ($roles as $role) {
+            Role::create(['name' => $role]);
+        }
+
+        $superAdmin = User::factory()->create([
+            'name' => 'super_admin',
             'email' => 'admin@school.com',
         ]);
+
+        $superAdmin->assignRole('admin');
 
         $names = ['Math', 'English', 'Software Engineering', 'Statistics', 'Chemistry', 'Physics', 'Biology', 'Geography'];
         foreach ($names as $subject) {
@@ -34,18 +43,24 @@ class DatabaseSeeder extends Seeder
         $teachers = User::factory(10)->create();
         $students = User::factory(10)->create();
 
+        foreach ($subjects as $subject) {
+            $subject->teachers()->attach(fake()->randomElements($teachers->pluck('id'), rand(1, 4)));
+            $subject->students()->attach(fake()->randomElements($students->pluck('id'), rand(3, 7)));
+        }
+
         foreach ($teachers as $teacher) {
-            $teacher->teacherSubjects()->sync($subjects->random());
+            $teacher->assignRole('teacher');
         }
 
         foreach ($students as $student) {
-            $student->studentSubjects()->sync($subjects->random());
+            $student->assignRole('student');
         }
 
         $studentSubjects = DB::table('student_subject')->get();
         $teacherSubjects = DB::table('teacher_subject')->get();
 
         foreach ($studentSubjects as $studentSubject) {
+
             // Get teachers for this subject
             $availableTeachers = $teacherSubjects->where('subject_id', $studentSubject->subject_id);
 

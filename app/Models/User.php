@@ -10,11 +10,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
+
+    use HasRoles;
 
     protected $hidden = [
         'password',
@@ -45,16 +48,37 @@ class User extends Authenticatable
 
     public static function scopeAdmin(Builder $query): Builder
     {
-        return $query;
+        return $query->whereHas('roles', function ($q) {
+            $q->where('name', 'admin');
+        });
     }
 
     public static function scopeStudent(Builder $query): Builder
     {
-        return $query;
+        return $query->whereHas('roles', function ($q) {
+            $q->where('name', 'student');
+        });
     }
 
     public static function scopeTeacher(Builder $query): Builder
     {
-        return $query;
+        return $query->whereHas('roles', function ($q) {
+            $q->where('name', 'teacher');
+        });
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasAnyRole('admin');
+    }
+
+    public function isTeacher(): bool
+    {
+        return $this->hasAnyRole('teacher');
+    }
+
+    public function isStudent(): bool
+    {
+        return $this->hasAnyRole('student');
     }
 }

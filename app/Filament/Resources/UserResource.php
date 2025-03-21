@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
+use App\Models\Grade;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -12,6 +13,7 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class UserResource extends Resource
 {
@@ -28,9 +30,13 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required(),
-                Forms\Components\TextInput::make('password')
-                    ->password()
+                Forms\Components\Select::make('role_id')
+                    ->relationship('roles', 'name')
                     ->required(),
+                Forms\Components\TextInput::make('password')
+                    ->required()
+                    ->password()
+                    ->revealable(),
             ]);
     }
 
@@ -39,30 +45,54 @@ class UserResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('email')
-                    ->searchable(),
+                    ->badge()
+                    ->copyable()
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('roles.name')
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                    ->searchable()
+                    ->badge()
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Joined at')
                     ->date()
                     ->sortable(),
             ])
+            ->modifyQueryUsing(function (Builder $query) {
+                if (Auth::user()->hasRole('student')) {
+                    return $query->where('id', Auth::id());
+                }
+
+                if (Auth::user()->hasRole('teacher')) {
+                    $students = Grade::where('teacher_id', Auth::id())->pluck('student_id');
+
+                    // dd($students);
+                    return $query->whereIn('id', $students);
+                }
+
+                return $query;
+            })
+            ->defaultSort('created_at', 'desc')
             ->filters([
-                Filter::make('All')
-                    ->toggle()
-                    ->default()
-                    ->modifyQueryUsing(fn (Builder $query) => $query),
                 Filter::make('Admin')
                     ->toggle()
+                    ->visible(Auth::user()->can('view_user'))
                     ->modifyQueryUsing(fn (Builder $query) => $query->admin()),
                 Filter::make('Teacher')
                     ->toggle()
+                    ->visible(Auth::user()->can('view_user'))
                     ->modifyQueryUsing(fn (Builder $query) => $query->teacher()),
                 Filter::make('Student')
                     ->toggle()
+                    ->visible(Auth::user()->can('view_user'))
                     ->modifyQueryUsing(fn (Builder $query) => $query->student()),
             ], FiltersLayout::AboveContent)
-            ->filtersFormColumns(4)
+            ->filtersFormColumns(3)
             ->persistFiltersInSession()
             ->actions([
                 Tables\Actions\EditAction::make(),
