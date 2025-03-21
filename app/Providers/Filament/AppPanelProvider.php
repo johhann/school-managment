@@ -2,6 +2,13 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\GradeDistributionChart;
+use App\Filament\Widgets\RecentGrades;
+use App\Filament\Widgets\StudentGradeChart;
+use App\Filament\Widgets\SubjectEnrollmentChart;
+use App\Filament\Widgets\SubjectOverview;
+use App\Filament\Widgets\TeacherWorkloadChart;
+use App\Filament\Widgets\TopPerformingStudents;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -36,10 +43,17 @@ class AppPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
+            // ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                // Widgets\AccountWidget::class,
+                // Widgets\FilamentInfoWidget::class,
+                SubjectOverview::class,
+                RecentGrades::class,
+                TopPerformingStudents::class,
+                StudentGradeChart::class,
+                SubjectEnrollmentChart::class,
+                TeacherWorkloadChart::class,
+                GradeDistributionChart::class,
             ])
             ->middleware([
                 EncryptCookies::class,
